@@ -120,23 +120,23 @@ class Cube {
         gl.drawArrays(gl.TRIANGLES, 0, 6);
         
         // Draw top face with shading
-        gl.uniform4f(u_FragColor, rgba[0]*.9, rgba[1]*.9, rgba[2]*.9, rgba[3]);
+        gl.uniform4f(u_FragColor, rgba[0], rgba[1], rgba[2], rgba[3]);
         gl.drawArrays(gl.TRIANGLES, 6, 6);
         
         // Draw bottom face with shading
-        gl.uniform4f(u_FragColor, rgba[0]*.8, rgba[1]*.8, rgba[2]*.8, rgba[3]);
+        gl.uniform4f(u_FragColor, rgba[0], rgba[1], rgba[2], rgba[3]);
         gl.drawArrays(gl.TRIANGLES, 12, 6);
         
         // Draw left face with shading
-        gl.uniform4f(u_FragColor, rgba[0]*.4, rgba[1]*.4, rgba[2]*.4, rgba[3]);
+        gl.uniform4f(u_FragColor, rgba[0], rgba[1], rgba[2], rgba[3]);
         gl.drawArrays(gl.TRIANGLES, 18, 6);
         
         // Draw right face with shading
-        gl.uniform4f(u_FragColor, rgba[0]*.7, rgba[1]*.7, rgba[2]*.7, rgba[3]);
+        gl.uniform4f(u_FragColor, rgba[0], rgba[1], rgba[2], rgba[3]);
         gl.drawArrays(gl.TRIANGLES, 24, 6);
         
         // Draw back face with shading
-        gl.uniform4f(u_FragColor, rgba[0]*.6, rgba[1]*.6, rgba[2]*.6, rgba[3]);
+        gl.uniform4f(u_FragColor, rgba[0], rgba[1], rgba[2], rgba[3]);
         gl.drawArrays(gl.TRIANGLES, 30, 6);
     }
 }

@@ -22,6 +22,7 @@ const FSHADER_SOURCE = `
     uniform vec4 u_FragColor;
     uniform int u_UseNormalColors;
     uniform vec3 u_LightPos;
+    uniform vec3 u_cameraPos;
     varying vec4 v_VertPos;
     void main() {
         if (u_UseNormalColors == 1) {
@@ -30,12 +31,26 @@ const FSHADER_SOURCE = `
             gl_FragColor = u_FragColor;
         }
 
-        vec3 lightVector = vec3(v_VertPos) - u_LightPos;
-        float r = length(lightVector);
-        if (r < 1.0){
-            gl_FragColor = vec4(1.0, 0.0, 0.0, 1.0);
-        } else if (r < 2.0) {
-            gl_FragColor = vec4(0.0, 1.0, 0.0, 1.0);
+        vec3 lightVector = u_LightPos - vec3(v_VertPos);
+        vec3 L = normalize(lightVector);
+        vec3 N = normalize(v_Normal);
+        float nDotL = max(dot(N, L), 0.0);
+
+        vec3 R = reflect(-L, N);
+        vec3 E = normalize(u_cameraPos - vec3(v_VertPos));
+
+        float specular = pow(max(dot(E, R), 0.0), 5.0); 
+
+        bool isSky = (gl_FragColor.r > 0.4 && gl_FragColor.r < 0.6 && 
+              gl_FragColor.g > 0.6 && gl_FragColor.g < 0.8 && 
+              gl_FragColor.b > 0.9);
+
+        vec3 diffuse = vec3(gl_FragColor) * nDotL;
+        vec3 ambient = vec3(gl_FragColor) * 0.3;
+        if (isSky) {
+            gl_FragColor = vec4(diffuse + ambient, 1.0);
+        } else {
+            gl_FragColor = vec4(specular + diffuse + ambient, 1.0);
         }
     }`;
 
@@ -50,6 +65,7 @@ let u_LightPos;
 let u_ProjectionMatrix;
 let a_Normal;
 let u_UseNormalColors;
+let u_cameraPos;
 
 let g_lastTime = performance.now();
 let g_frameCount = 0;
@@ -99,7 +115,6 @@ var g_seconds = performance.now()/1000.0 - g_startTime;
 var g_isPoking = false;
 var g_pokeStartTime = 0;
 var g_pokeDuration = 3.5; // Duration of the poke animation in seconds
-let g_needsRender = true;
 let g_isAnimating = false;
 let g_lastAnimationTime = 0;
 
@@ -192,6 +207,12 @@ function connectVariablesToGLSL() {
         console.log('Failed to get u_LightPos');
         return;
     }
+
+    u_cameraPos = gl.getUniformLocation(gl.program, 'u_cameraPos');
+    if (!u_cameraPos) {
+        console.log('Failed to get u_cameraPos');
+        return;
+    }
     
 
     var identityM = new Matrix4();
@@ -200,14 +221,14 @@ function connectVariablesToGLSL() {
 
 // set up event listeners
 function addActionsForHtmlUI() {
-    document.getElementById("start").onclick = function() {g_Animation = true; g_needsRender = true;};
-    document.getElementById("stop").onclick = function() {g_Animation = false; g_needsRender = true;};
-    document.getElementById("On").onclick = function() {g_Normals = true, gl.uniform1i(u_UseNormalColors, 1); g_needsRender = true;};
-    document.getElementById("Off").onclick = function() {g_Normals = false, gl.uniform1i(u_UseNormalColors, 0); g_needsRender = true;};
+    document.getElementById("start").onclick = function() {g_Animation = true;};
+    document.getElementById("stop").onclick = function() {g_Animation = false;};
+    document.getElementById("On").onclick = function() {g_Normals = true, gl.uniform1i(u_UseNormalColors, 1);};
+    document.getElementById("Off").onclick = function() {g_Normals = false, gl.uniform1i(u_UseNormalColors, 0);};
 
-    document.getElementById("lightSliderX").addEventListener("mousemove", function() { g_lightPos[0]= this.value/100; renderScene(); g_needsRender = true;});
-    document.getElementById("lightSliderY").addEventListener("mousemove", function() { g_lightPos[1]= this.value/100; renderScene(); g_needsRender = true;});
-    document.getElementById("lightSliderZ").addEventListener("mousemove", function() { g_lightPos[2]= this.value/100; renderScene(); g_needsRender = true;});
+    document.getElementById("lightSliderX").addEventListener("mousemove", function() { g_lightPos[0]= this.value/100; renderScene();});
+    document.getElementById("lightSliderY").addEventListener("mousemove", function() { g_lightPos[1]= this.value/100; renderScene();});
+    document.getElementById("lightSliderZ").addEventListener("mousemove", function() { g_lightPos[2]= this.value/100; renderScene();});
 }
 
 function setupMouseHandlers() {
@@ -220,7 +241,6 @@ function setupMouseHandlers() {
             // Start the poke animation
             g_isPoking = true;
             g_pokeStartTime = performance.now()/1000.0;
-            g_needsRender = true;
             return; // Don't start rotation when poking
         }
 
@@ -264,8 +284,6 @@ function setupMouseHandlers() {
             g_lastX = x;
             g_lastY = y;
             
-            // Flag that we need to render
-            g_needsRender = true;
         }
     };
 }
@@ -294,18 +312,17 @@ function tick() {
         
         if (g_isPoking) {
             updatePokeAnimation();
-            g_needsRender = true;
         } else if (g_Animation) {
             updateRunAnimation();
-            g_needsRender = true;
+            
         }
     }
-    
+
+    g_lightPos[0] = Math.sin(g_seconds);
+
     // Only render when something has changed
-    if (g_needsRender) {
-        renderScene();
-        g_needsRender = false; // Reset the flag
-    }
+    
+    renderScene();
     
     requestAnimationFrame(tick);
 }
@@ -434,9 +451,20 @@ function renderScene() {
     gl.uniformMatrix4fv(u_GlobalRotateMatrix, false, globalRotateMatrix.elements);
 
     let projMatrix = new Matrix4();
-    projMatrix.setPerspective(60, canvas.width / canvas.height, 0.1, 100);
+    projMatrix.setPerspective(90, canvas.width / canvas.height, 0.1, 100);
     gl.uniformMatrix4fv(u_ProjectionMatrix, false, projMatrix.elements);
+
+    gl.uniform3f(u_LightPos, g_lightPos[0], g_lightPos[1], g_lightPos[2]);
+
+    var radX = g_globalAngleX * Math.PI / 180;
+    var radY = g_globalAngleY * Math.PI / 180;
     
+    // Apply inverse transformations
+   var cameraX = -2.5 * Math.sin(radY) * Math.cos(radX);
+    var cameraY = 2.5 * Math.sin(radX);
+    var cameraZ = 2.5 * Math.cos(radY) * Math.cos(radX);
+    gl.uniform3f(u_cameraPos, cameraX, cameraY, cameraZ);
+
     var sky = new Cube();
     sky.matrix.setTranslate(2.5, 2.5, 2.5); // Position the sky cube
     sky.matrix.scale(-5, -5, -5);
@@ -447,12 +475,12 @@ function renderScene() {
     sphere.matrix.scale(0.5, 0.5, 0.5); // Scale the sphere
     sphere.render([0.8, 0.5, 0.2, 1.0]); // Ground color
 
-    gl.uniform3f(u_LightPos, g_lightPos[0], g_lightPos[1], g_lightPos[2]);
+    
 
     var light = new Cube();
     light.matrix.setTranslate(g_lightPos[0], g_lightPos[1], g_lightPos[2]);
-    light.matrix.scale(0.1, 0.1, 0.1); // Scale the light cube
-    light.render([1.0, 1.0, 0.0, 1.0]); // Light color
+    light.matrix.scale(-0.1, -0.1, -0.1); // Scale the light cube
+    light.render([2.0, 2.0, 0.0, 1.0]); // Light color
 
     // body 
     var body = new Cube();
