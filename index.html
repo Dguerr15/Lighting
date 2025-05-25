@@ -13,43 +13,6 @@
               Please use a browser that supports "canvas"
             </canvas>
             <div id="fps">FPS: 0</div>
-            <p>
-                Front Left Upper Leg <Input type="range" min="-45" max="45" value="0" class = "slider" id="leftFUSlide">
-            </p>
-            <p>
-                Front Left Lower Leg <Input type="range" min="-45" max="45" value="0" class = "slider" id="leftFLSlide">
-            </p>
-            <p>
-                Front Left Paw <Input type="range" min="-15" max="15" value="0" class = "slider" id="leftFPSlide">
-            </p>
-            <p>
-                Front Right Upper Leg <Input type="range" min="-45" max="45" value="0" class = "slider" id="rightFUSlide">
-            </p>
-            <p>
-                Front Right Lower Leg <Input type="range" min="-45" max="45" value="0" class = "slider" id="rightFLSlide">
-            </p>
-            <p>
-                Front Right Paw <Input type="range" min="-15" max="15" value="0" class = "slider" id="rightFPSlide">
-            </p>
-    
-            <p>
-                Back Left Upper Leg <Input type="range" min="-45" max="45" value="0" class = "slider" id="leftBUSlide">
-            </p>
-            <p>
-                Back Left Lower Leg <Input type="range" min="-45" max="45" value="0" class = "slider" id="leftBLSlide">
-            </p>
-            <p>
-                Back Left Paw <Input type="range" min="-15" max="15" value="0" class = "slider" id="leftBPSlide">
-            </p>
-            <p>
-                Back Right Upper Leg <Input type="range" min="-45" max="45" value="0" class = "slider" id="rightBUSlide">
-            </p>
-            <p>
-                Back Right Lower Leg <Input type="range" min="-45" max="45" value="0" class = "slider" id="rightBLSlide">
-            </p>
-            <p>
-                Back Right Paw <Input type="range" min="-15" max="15" value="0" class = "slider" id="rightBPSlide">
-            </p>
       </div>
       <div>
         <p>
@@ -61,12 +24,13 @@
             <button type="button" id="On">On</button>
             <button type="button" id="Off">Off</button>
         <p>
-            Mouth:
-            <Input type="range" min="-10" max="15" value="0" class = "slider" id="mouthSlide">
+            LightX<Input type="range" min="-250" max="250" value="0" class = "slider" id="lightSliderX">
+            </p>
+            LightY<Input type="range" min="-250" max="250" value="100" class = "slider" id="lightSliderY">
+            <p>
+            LightZ<Input type="range" min="-250" max="250" value="-200" class = "slider" id="lightSliderZ">
+            </p>
         </p>
-        <p>
-            Tail:
-            <Input type="range" min="-30" max="30" value="0" class = "slider" id="tailSlide">
         </p>
       </div>
       
@@ -82,6 +46,7 @@
     <script src="circle.js"></script>
     <script src="cube.js"></script>
     <script src="cylinder.js"></script>
+    <script src="sphere.js"></script>
     
 </body>
 </html>

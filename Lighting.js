@@ -6,11 +6,13 @@ const VSHADER_SOURCE = `
     uniform mat4 u_ModelMatrix;
     uniform mat4 u_GlobalRotateMatrix;
     uniform mat4 u_ProjectionMatrix;
+    varying vec4 v_VertPos;
 
     void main() {
         gl_Position = u_ProjectionMatrix * u_GlobalRotateMatrix * u_ModelMatrix * a_Position;
 
         v_Normal = a_Normal;
+        v_VertPos = u_ModelMatrix * a_Position;
     }`;
 
 // Fragment shader program
@@ -19,11 +21,21 @@ const FSHADER_SOURCE = `
     varying vec3 v_Normal;
     uniform vec4 u_FragColor;
     uniform int u_UseNormalColors;
+    uniform vec3 u_LightPos;
+    varying vec4 v_VertPos;
     void main() {
         if (u_UseNormalColors == 1) {
             gl_FragColor = vec4((v_Normal + 1.0) / 2.0, 1.0);
         } else{
             gl_FragColor = u_FragColor;
+        }
+
+        vec3 lightVector = vec3(v_VertPos) - u_LightPos;
+        float r = length(lightVector);
+        if (r < 1.0){
+            gl_FragColor = vec4(1.0, 0.0, 0.0, 1.0);
+        } else if (r < 2.0) {
+            gl_FragColor = vec4(0.0, 1.0, 0.0, 1.0);
         }
     }`;
 
@@ -34,10 +46,16 @@ let a_Position;
 let u_FragColor;
 let u_ModelMatrix;
 let u_GlobalRotateMatrix;
+let u_LightPos;
+let u_ProjectionMatrix;
+let a_Normal;
+let u_UseNormalColors;
+
 let g_lastTime = performance.now();
 let g_frameCount = 0;
 let g_fps = 0;
 let g_Normals = false; // Toggle normals display
+let g_lightPos = [0,1,-2];
 
 // UI
 var g_globalAngleX = 20; // Camera
@@ -139,7 +157,6 @@ function connectVariablesToGLSL() {
         return;
     }
 
-
     a_Normal = gl.getAttribLocation(gl.program, 'a_Normal');
     if (a_Normal < 0) {
         console.log('Failed to get the storage location of a_Normal');
@@ -169,6 +186,12 @@ function connectVariablesToGLSL() {
         console.log('Failed to get u_GlobalRotateMatrix');
         return;
     }
+
+    u_LightPos = gl.getUniformLocation(gl.program, 'u_LightPos');
+    if (!u_LightPos) {
+        console.log('Failed to get u_LightPos');
+        return;
+    }
     
 
     var identityM = new Matrix4();
@@ -182,25 +205,9 @@ function addActionsForHtmlUI() {
     document.getElementById("On").onclick = function() {g_Normals = true, gl.uniform1i(u_UseNormalColors, 1); g_needsRender = true;};
     document.getElementById("Off").onclick = function() {g_Normals = false, gl.uniform1i(u_UseNormalColors, 0); g_needsRender = true;};
 
-    document.getElementById("mouthSlide").addEventListener("mousemove", function() { g_mouth = this.value; renderScene(); g_needsRender = true;});
-
-    document.getElementById("tailSlide").addEventListener("mousemove", function() { g_tail = this.value; renderScene(); g_needsRender = true;});
-
-    document.getElementById("leftFUSlide").addEventListener("mousemove", function() { g_FLU = this.value; renderScene(); g_needsRender = true;});
-    document.getElementById("leftFLSlide").addEventListener("mousemove", function() { g_FLL = this.value; renderScene(); g_needsRender = true;});
-    document.getElementById("leftFPSlide").addEventListener("mousemove", function() { g_FLP = this.value; renderScene(); g_needsRender = true;});
-
-    document.getElementById("rightFPSlide").addEventListener("mousemove", function() { g_FRP = this.value; renderScene(); g_needsRender = true;});
-    document.getElementById("rightFLSlide").addEventListener("mousemove", function() { g_FRL = this.value; renderScene(); g_needsRender = true;});
-    document.getElementById("rightFUSlide").addEventListener("mousemove", function() { g_FRU = this.value; renderScene(); g_needsRender = true;});
-
-    document.getElementById("leftBUSlide").addEventListener("mousemove", function() { g_BLU = this.value; renderScene(); g_needsRender = true;});
-    document.getElementById("leftBLSlide").addEventListener("mousemove", function() { g_BLL = this.value; renderScene(); g_needsRender = true;});
-    document.getElementById("leftBPSlide").addEventListener("mousemove", function() { g_BLP = this.value; renderScene(); g_needsRender = true;});
-
-    document.getElementById("rightBPSlide").addEventListener("mousemove", function() { g_BRP = this.value; renderScene(); g_needsRender = true;});
-    document.getElementById("rightBLSlide").addEventListener("mousemove", function() { g_BRL = this.value; renderScene(); g_needsRender = true;});
-    document.getElementById("rightBUSlide").addEventListener("mousemove", function() { g_BRU = this.value; renderScene(); g_needsRender = true;});
+    document.getElementById("lightSliderX").addEventListener("mousemove", function() { g_lightPos[0]= this.value/100; renderScene(); g_needsRender = true;});
+    document.getElementById("lightSliderY").addEventListener("mousemove", function() { g_lightPos[1]= this.value/100; renderScene(); g_needsRender = true;});
+    document.getElementById("lightSliderZ").addEventListener("mousemove", function() { g_lightPos[2]= this.value/100; renderScene(); g_needsRender = true;});
 }
 
 function setupMouseHandlers() {
@@ -434,6 +441,18 @@ function renderScene() {
     sky.matrix.setTranslate(2.5, 2.5, 2.5); // Position the sky cube
     sky.matrix.scale(-5, -5, -5);
     sky.render([0.5, 0.7, 1.0, 1.0]); // Sky color
+
+    var sphere = new Sphere();
+    sphere.matrix.setTranslate(0.5, .5, 0); // Position the sphere
+    sphere.matrix.scale(0.5, 0.5, 0.5); // Scale the sphere
+    sphere.render([0.8, 0.5, 0.2, 1.0]); // Ground color
+
+    gl.uniform3f(u_LightPos, g_lightPos[0], g_lightPos[1], g_lightPos[2]);
+
+    var light = new Cube();
+    light.matrix.setTranslate(g_lightPos[0], g_lightPos[1], g_lightPos[2]);
+    light.matrix.scale(0.1, 0.1, 0.1); // Scale the light cube
+    light.render([1.0, 1.0, 0.0, 1.0]); // Light color
 
     // body 
     var body = new Cube();
