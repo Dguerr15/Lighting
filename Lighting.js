@@ -76,6 +76,7 @@ let g_frameCount = 0;
 let g_fps = 0;
 let g_Normals = false; // Toggle normals display
 let g_lightPos = [0,1,-2];
+let g_shapes = {};
 
 // UI
 var g_globalAngleX = 20; // Camera
@@ -132,6 +133,8 @@ function main() {
     addActionsForHtmlUI();
     
     setupMouseHandlers();
+
+    initializeShapes();
 
     gl.clearColor(0.0, 0.0, 0.0, 1.0);
 
@@ -457,15 +460,43 @@ function resetAnimalPose() {
     }
 }
 
+function initializeShapes() {
+    // Initialize all shapes once
+    g_shapes.sky = new Cube();
+    g_shapes.sphere = new Sphere();
+    g_shapes.light = new Cube();
+    g_shapes.body = new Cube();
+    g_shapes.tail = new Cylinder();
+    g_shapes.head = new Cube();
+    g_shapes.mouthRoof = new Cube();
+    g_shapes.mouthFloor = new Cube();
+    g_shapes.leftEye = new Cube();
+    g_shapes.rightEye = new Cube();
+    g_shapes.leftEar = new Cube();
+    g_shapes.rightEar = new Cube();
+    g_shapes.leftFU = new Cube();
+    g_shapes.leftFL = new Cube();
+    g_shapes.leftFP = new Cube();
+    g_shapes.rightFU = new Cube();
+    g_shapes.rightFL = new Cube();
+    g_shapes.rightFP = new Cube();
+    g_shapes.leftBU = new Cube();
+    g_shapes.leftBL = new Cube();
+    g_shapes.leftBP = new Cube();
+    g_shapes.rightBU = new Cube();
+    g_shapes.rightBL = new Cube();
+    g_shapes.rightBP = new Cube();
+}
+
 // render all shapes
 function renderScene() {
     gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
 
     // Create a global rotation matrix that combines X and Y rotations
     var globalRotateMatrix = new Matrix4()
-        .translate(0, 0, -2.5) // move camera "backward"
-        .rotate(g_globalAngleX, 1, 0, 0)  // Rotate around X axis
-        .rotate(g_globalAngleY, 0, 1, 0); // Rotate around Y axis
+        .translate(0, 0, -2.5)
+        .rotate(g_globalAngleX, 1, 0, 0)
+        .rotate(g_globalAngleY, 0, 1, 0);
     gl.uniformMatrix4fv(u_GlobalRotateMatrix, false, globalRotateMatrix.elements);
 
     let projMatrix = new Matrix4();
@@ -477,230 +508,208 @@ function renderScene() {
     var radX = g_globalAngleX * Math.PI / 180;
     var radY = g_globalAngleY * Math.PI / 180;
     
-    // Apply inverse transformations
     var cameraX = -2.5 * Math.sin(radY) * Math.cos(radX);
     var cameraY = 2.5 * Math.sin(radX);
     var cameraZ = 2.5 * Math.cos(radY) * Math.cos(radX);
     gl.uniform3f(u_cameraPos, cameraX, cameraY, cameraZ);
 
-    var sky = new Cube();
-    sky.matrix.setTranslate(2.5, 2.5, 2.5); // Position the sky cube
-    sky.matrix.scale(-5, -5, -5);
-    sky.render([0.5, 0.7, 1.0, 1.0]); // Sky color
+    // Sky - reuse existing shape
+    g_shapes.sky.matrix.setTranslate(2.5, 2.5, 2.5);
+    g_shapes.sky.matrix.scale(-5, -5, -5);
+    g_shapes.sky.render([0.5, 0.7, 1.0, 1.0]);
 
-    var sphere = new Sphere();
-    sphere.matrix.setTranslate(0.5, .5, 0); // Position the sphere
-    sphere.matrix.scale(0.5, 0.5, 0.5); // Scale the sphere
-    sphere.render([0.8, 0.5, 0.2, 1.0]); // Ground color
+    // Sphere - reuse existing shape
+    g_shapes.sphere.matrix.setTranslate(0.5, .5, 0);
+    g_shapes.sphere.matrix.scale(0.5, 0.5, 0.5);
+    g_shapes.sphere.render([0.8, 0.5, 0.2, 1.0]);
 
-    var light = new Cube();
-    light.matrix.setTranslate(g_lightPos[0], g_lightPos[1], g_lightPos[2]);
-    light.matrix.scale(-0.1, -0.1, -0.1); // Scale the light cube
-    light.render([2.0, 2.0, 0.0, 1.0]); // Light color
+    // Light - reuse existing shape
+    g_shapes.light.matrix.setTranslate(g_lightPos[0], g_lightPos[1], g_lightPos[2]);
+    g_shapes.light.matrix.scale(-0.1, -0.1, -0.1);
+    g_shapes.light.render([2.0, 2.0, 0.0, 1.0]);
 
-    // body 
-    var body = new Cube();
-    body.matrix.setTranslate(-0.25, -0.2, -0.05);
-    body.matrix.rotate(g_body, 1, 0, 0);
-    var bodyCoords = new Matrix4(body.matrix);
-    body.matrix.scale(0.5, 0.3, 0.65);
-    body.normalMatrix.setInverseOf(body.matrix).transpose();
-    body.render([0.45, 0.3, 0.0, 1.0]);
+    // Body - reuse existing shape
+    g_shapes.body.matrix.setTranslate(-0.25, -0.2, -0.05);
+    g_shapes.body.matrix.rotate(g_body, 1, 0, 0);
+    var bodyCoords = new Matrix4(g_shapes.body.matrix);
+    g_shapes.body.matrix.scale(0.5, 0.3, 0.65);
+    g_shapes.body.normalMatrix.setInverseOf(g_shapes.body.matrix).transpose();
+    g_shapes.body.render([0.45, 0.3, 0.0, 1.0]);
 
-    // tail
-    var tail = new Cylinder();
-    tail.matrix = bodyCoords;
-    tail.matrix.translate(0.25, 0.25, 0.55);
-    tail.matrix.rotate(45, 1, 0, 0);
-    tail.matrix.rotate(g_tail, 0, 0, 1);
-    tail.matrix.scale(0.1, 0.4, 0.1);
-    tail.render([0.4, 0.2, 0.0, 1.0]);
+    // Tail - reuse existing shape
+    g_shapes.tail.matrix = bodyCoords;
+    g_shapes.tail.matrix.translate(0.25, 0.25, 0.55);
+    g_shapes.tail.matrix.rotate(45, 1, 0, 0);
+    g_shapes.tail.matrix.rotate(g_tail, 0, 0, 1);
+    g_shapes.tail.matrix.scale(0.1, 0.4, 0.1);
+    g_shapes.tail.render([0.4, 0.2, 0.0, 1.0]);
 
-    // Head
-    var head = new Cube();
-    head.matrix = bodyCoords;
-    head.matrix.setTranslate(-0.175, 0.025, -0.15);
-    var headCoords = new Matrix4(head.matrix);
-    head.matrix.scale(0.35, 0.25, 0.2);
-    head.render([0.5, 0.3, 0.0, 1.0]);
+    // Head - reuse existing shape
+    g_shapes.head.matrix = bodyCoords;
+    g_shapes.head.matrix.setTranslate(-0.175, 0.025, -0.15);
+    var headCoords = new Matrix4(g_shapes.head.matrix);
+    g_shapes.head.matrix.scale(0.35, 0.25, 0.2);
+    g_shapes.head.render([0.5, 0.3, 0.0, 1.0]);
 
-    // mouth roof
-    var mouthRoof = new Cube();
-    mouthRoof.matrix = headCoords;
-    mouthRoof.matrix.setTranslate(-0.075, 0.075, -0.3);
-    mouthRoof.matrix.scale(0.15, 0.075, 0.2);
-    mouthRoof.render([0.5, 0.2, 0.0, 1.0]);
+    // Mouth roof - reuse existing shape
+    g_shapes.mouthRoof.matrix = headCoords;
+    g_shapes.mouthRoof.matrix.setTranslate(-0.075, 0.075, -0.3);
+    g_shapes.mouthRoof.matrix.scale(0.15, 0.075, 0.2);
+    g_shapes.mouthRoof.render([0.5, 0.2, 0.0, 1.0]);
 
-    // mouth floor
-    var mouthFloor = new Cube();
-    mouthFloor.matrix = headCoords;
-    mouthFloor.matrix.setTranslate(0.075, 0.025, -0.1);
-    mouthFloor.matrix.rotate(180, 0, 1, 0);
-    mouthFloor.matrix.rotate(10, 1, 0, 0);
-    mouthFloor.matrix.rotate(g_mouth, 1, 0, 0);
-    mouthFloor.matrix.scale(0.15, 0.075, 0.2);
-    mouthFloor.normalMatrix.setInverseOf(mouthFloor.matrix).transpose();
-    mouthFloor.render([0.5, 0.3, 0.0, 1.0]);
+    // Mouth floor - reuse existing shape
+    g_shapes.mouthFloor.matrix = headCoords;
+    g_shapes.mouthFloor.matrix.setTranslate(0.075, 0.025, -0.1);
+    g_shapes.mouthFloor.matrix.rotate(180, 0, 1, 0);
+    g_shapes.mouthFloor.matrix.rotate(10, 1, 0, 0);
+    g_shapes.mouthFloor.matrix.rotate(g_mouth, 1, 0, 0);
+    g_shapes.mouthFloor.matrix.scale(0.15, 0.075, 0.2);
+    g_shapes.mouthFloor.normalMatrix.setInverseOf(g_shapes.mouthFloor.matrix).transpose();
+    g_shapes.mouthFloor.render([0.5, 0.3, 0.0, 1.0]);
 
-    // draw left eye
-    var leftEye = new Cube();
-    leftEye.matrix = headCoords;
-    leftEye.matrix.setTranslate(0.075, 0.175, -0.151);
-    leftEye.matrix.scale(0.05, 0.05, 0.05);
-    leftEye.render([0, 0, 0, 1.0]);
+    // Left eye - reuse existing shape
+    g_shapes.leftEye.matrix = headCoords;
+    g_shapes.leftEye.matrix.setTranslate(0.075, 0.175, -0.151);
+    g_shapes.leftEye.matrix.scale(0.05, 0.05, 0.05);
+    g_shapes.leftEye.render([0, 0, 0, 1.0]);
 
-    // draw right eye
-    var rightEye = new Cube();
-    rightEye.matrix = headCoords;
-    rightEye.matrix.setTranslate(-0.125, 0.175, -0.151);
-    rightEye.matrix.scale(0.05, 0.05, 0.05);
-    rightEye.render([0, 0, 0, 1.0]);
+    // Right eye - reuse existing shape
+    g_shapes.rightEye.matrix = headCoords;
+    g_shapes.rightEye.matrix.setTranslate(-0.125, 0.175, -0.151);
+    g_shapes.rightEye.matrix.scale(0.05, 0.05, 0.05);
+    g_shapes.rightEye.render([0, 0, 0, 1.0]);
 
-    // draw left ear
-    var leftEar = new Cube();
-    leftEar.matrix = headCoords;
-    leftEar.matrix.setTranslate(0.075, 0.2, -0.05);
-    leftEar.matrix.rotate(45, 0, 0, 1);
-    leftEar.matrix.scale(0.1, 0.1, 0.05);
-    leftEar.render([0.5, 0.3, 0.0, 1.0]);
+    // Left ear - reuse existing shape
+    g_shapes.leftEar.matrix = headCoords;
+    g_shapes.leftEar.matrix.setTranslate(0.075, 0.2, -0.05);
+    g_shapes.leftEar.matrix.rotate(45, 0, 0, 1);
+    g_shapes.leftEar.matrix.scale(0.1, 0.1, 0.05);
+    g_shapes.leftEar.render([0.5, 0.3, 0.0, 1.0]);
 
-    // draw left ear
-    var rightEar = new Cube();
-    rightEar.matrix = headCoords;
-    rightEar.matrix.setTranslate(-0.075, 0.2, -0.05);
-    rightEar.matrix.rotate(45, 0, 0, 1);
-    rightEar.matrix.scale(0.1, 0.1, 0.05);
-    rightEar.render([0.5, 0.3, 0.0, 1.0]);
+    // Right ear - reuse existing shape
+    g_shapes.rightEar.matrix = headCoords;
+    g_shapes.rightEar.matrix.setTranslate(-0.075, 0.2, -0.05);
+    g_shapes.rightEar.matrix.rotate(45, 0, 0, 1);
+    g_shapes.rightEar.matrix.scale(0.1, 0.1, 0.05);
+    g_shapes.rightEar.render([0.5, 0.3, 0.0, 1.0]);
 
-    // draw front left upper leg
-    var leftFU = new Cube();
-    leftFU.matrix = new Matrix4(bodyCoords);
-    leftFU.matrix.translate(1.2, -0.75, 0.75);
-    leftFU.matrix.rotate(180, 0, 0, 1);
-    leftFU.matrix.rotate(-15, 1, 0, 0);
-    leftFU.matrix.rotate(g_FLU, 1, 0, 0);
-    var leftFUCoords = new Matrix4(leftFU.matrix);
-    leftFU.matrix.scale(0.3, 1.1, 0.5);
-    leftFU.normalMatrix.setInverseOf(leftFU.matrix).transpose();
-    leftFU.render([0.6, 0.4, 0.0, 1.0]);
+    // Front left upper leg - reuse existing shape
+    g_shapes.leftFU.matrix = new Matrix4(bodyCoords);
+    g_shapes.leftFU.matrix.translate(1.2, -0.75, 0.75);
+    g_shapes.leftFU.matrix.rotate(180, 0, 0, 1);
+    g_shapes.leftFU.matrix.rotate(-15, 1, 0, 0);
+    g_shapes.leftFU.matrix.rotate(g_FLU, 1, 0, 0);
+    var leftFUCoords = new Matrix4(g_shapes.leftFU.matrix);
+    g_shapes.leftFU.matrix.scale(0.3, 1.1, 0.5);
+    g_shapes.leftFU.normalMatrix.setInverseOf(g_shapes.leftFU.matrix).transpose();
+    g_shapes.leftFU.render([0.6, 0.4, 0.0, 1.0]);
 
-    // draw left Lower Leg
-    var leftFL = new Cube();
-    leftFL.matrix = leftFUCoords;
-    leftFL.matrix.translate(0.0, 1.0 , 0.0);
-    leftFL.matrix.rotate(30, 1, 0, 0);
-    leftFL.matrix.rotate(g_FLL, 1, 0, 0);
-    var leftFLCoords = new Matrix4(leftFL.matrix);
-    leftFL.matrix.scale(.3, 1.0, 0.5);
-    leftFL.normalMatrix.setInverseOf(leftFL.matrix).transpose();
-    leftFL.render([.65, .35, 0.0, 1.0]);
+    // Left front lower leg - reuse existing shape
+    g_shapes.leftFL.matrix = leftFUCoords;
+    g_shapes.leftFL.matrix.translate(0.0, 1.0 , 0.0);
+    g_shapes.leftFL.matrix.rotate(30, 1, 0, 0);
+    g_shapes.leftFL.matrix.rotate(g_FLL, 1, 0, 0);
+    var leftFLCoords = new Matrix4(g_shapes.leftFL.matrix);
+    g_shapes.leftFL.matrix.scale(.3, 1.0, 0.5);
+    g_shapes.leftFL.normalMatrix.setInverseOf(g_shapes.leftFL.matrix).transpose();
+    g_shapes.leftFL.render([.65, .35, 0.0, 1.0]);
 
-    // draw left front paw
-    var leftFP = new Cube();
-    leftFP.matrix = leftFLCoords;
-    leftFP.matrix.translate(-0.01, 1.0, 0.5);
-    leftFP.matrix.rotate(180, 1, 0, 0);
-    leftFP.matrix.rotate(g_FLP, 1, 0, 0);
-    leftFP.matrix.scale(0.34, 0.2, 1.);
-    leftFP.normalMatrix.setInverseOf(leftFP.matrix).transpose();
-    leftFP.render([0.7, 0.5, 0.0, 1.0]);
+    // Left front paw - reuse existing shape
+    g_shapes.leftFP.matrix = leftFLCoords;
+    g_shapes.leftFP.matrix.translate(-0.01, 1.0, 0.5);
+    g_shapes.leftFP.matrix.rotate(180, 1, 0, 0);
+    g_shapes.leftFP.matrix.rotate(g_FLP, 1, 0, 0);
+    g_shapes.leftFP.matrix.scale(0.34, 0.2, 1.);
+    g_shapes.leftFP.normalMatrix.setInverseOf(g_shapes.leftFP.matrix).transpose();
+    g_shapes.leftFP.render([0.7, 0.5, 0.0, 1.0]);
 
-    // draw front right upper leg
-    var rightFU = new Cube();
-    rightFU.matrix = new Matrix4(bodyCoords);
-    rightFU.matrix.translate(0.1, -0.75, 0.75);
-    rightFU.matrix.rotate(180, 0, 0, 1);
-    rightFU.matrix.rotate(-15, 1, 0, 0);
-    rightFU.matrix.rotate(g_FRU, 1, 0, 0);
-    var rightFUCoords = new Matrix4(rightFU.matrix);
-    rightFU.matrix.scale(0.3, 1.1, 0.5);
-    rightFU.normalMatrix.setInverseOf(rightFU.matrix).transpose();
-    rightFU.render([0.6, 0.4, 0.0, 1.0]);
+    // Front right upper leg - reuse existing shape
+    g_shapes.rightFU.matrix = new Matrix4(bodyCoords);
+    g_shapes.rightFU.matrix.translate(0.1, -0.75, 0.75);
+    g_shapes.rightFU.matrix.rotate(180, 0, 0, 1);
+    g_shapes.rightFU.matrix.rotate(-15, 1, 0, 0);
+    g_shapes.rightFU.matrix.rotate(g_FRU, 1, 0, 0);
+    var rightFUCoords = new Matrix4(g_shapes.rightFU.matrix);
+    g_shapes.rightFU.matrix.scale(0.3, 1.1, 0.5);
+    g_shapes.rightFU.normalMatrix.setInverseOf(g_shapes.rightFU.matrix).transpose();
+    g_shapes.rightFU.render([0.6, 0.4, 0.0, 1.0]);
 
-    // draw right Lower Leg
-    var rightFL = new Cube();
-    rightFL.matrix = rightFUCoords;
-    rightFL.matrix.translate(0.0, 1.0 , 0.0);
-    rightFL.matrix.rotate(30, 1, 0, 0);
-    rightFL.matrix.rotate(g_FRL, 1, 0, 0);
-    var rightFLCoords = new Matrix4(rightFL.matrix);
-    rightFL.matrix.scale(0.3, 1.0, 0.5);
-    rightFL.normalMatrix.setInverseOf(rightFL.matrix).transpose();
-    rightFL.render([.65, .35, 0.0, 1.0]);
+    // Right front lower leg - reuse existing shape
+    g_shapes.rightFL.matrix = rightFUCoords;
+    g_shapes.rightFL.matrix.translate(0.0, 1.0 , 0.0);
+    g_shapes.rightFL.matrix.rotate(30, 1, 0, 0);
+    g_shapes.rightFL.matrix.rotate(g_FRL, 1, 0, 0);
+    var rightFLCoords = new Matrix4(g_shapes.rightFL.matrix);
+    g_shapes.rightFL.matrix.scale(0.3, 1.0, 0.5);
+    g_shapes.rightFL.normalMatrix.setInverseOf(g_shapes.rightFL.matrix).transpose();
+    g_shapes.rightFL.render([.65, .35, 0.0, 1.0]);
 
-    // draw right front paw
-    var rightFP = new Cube();
-    rightFP.matrix = rightFLCoords;
-    rightFP.matrix.translate(-0.01, 1.0, 0.5);
-    rightFP.matrix.rotate(180, 1, 0, 0);
-    rightFP.matrix.rotate(g_FRP, 1, 0, 0);
-    rightFP.matrix.scale(0.34, 0.2, 1.0);
-    rightFP.normalMatrix.setInverseOf(rightFP.matrix).transpose();
-    rightFP.render([0.7, 0.5, 0.0, 1.0]);
+    // Right front paw - reuse existing shape
+    g_shapes.rightFP.matrix = rightFLCoords;
+    g_shapes.rightFP.matrix.translate(-0.01, 1.0, 0.5);
+    g_shapes.rightFP.matrix.rotate(180, 1, 0, 0);
+    g_shapes.rightFP.matrix.rotate(g_FRP, 1, 0, 0);
+    g_shapes.rightFP.matrix.scale(0.34, 0.2, 1.0);
+    g_shapes.rightFP.normalMatrix.setInverseOf(g_shapes.rightFP.matrix).transpose();
+    g_shapes.rightFP.render([0.7, 0.5, 0.0, 1.0]);
 
-    // draw back left upper leg
-    var leftBU = new Cube();
-    leftBU.matrix = new Matrix4(bodyCoords);
-    leftBU.matrix.translate(0.1, -0.75, 3.25);
-    leftBU.matrix.rotate(180, 0, 0, 1);
-    leftBU.matrix.rotate(-15, 1, 0, 0);
-    leftBU.matrix.rotate(g_BLU, 1, 0, 0);
-    var leftBUCoords = new Matrix4(leftBU.matrix);
-    leftBU.matrix.scale(0.3, 1.1, 0.5);
-    leftBU.normalMatrix.setInverseOf(leftBU.matrix).transpose();
-    leftBU.render([0.6, 0.4, 0.0, 1.0]);
+    // Back left upper leg - reuse existing shape
+    g_shapes.leftBU.matrix = new Matrix4(bodyCoords);
+    g_shapes.leftBU.matrix.translate(0.1, -0.75, 3.25);
+    g_shapes.leftBU.matrix.rotate(180, 0, 0, 1);
+    g_shapes.leftBU.matrix.rotate(-15, 1, 0, 0);
+    g_shapes.leftBU.matrix.rotate(g_BLU, 1, 0, 0);
+    var leftBUCoords = new Matrix4(g_shapes.leftBU.matrix);
+    g_shapes.leftBU.matrix.scale(0.3, 1.1, 0.5);
+    g_shapes.leftBU.normalMatrix.setInverseOf(g_shapes.leftBU.matrix).transpose();
+    g_shapes.leftBU.render([0.6, 0.4, 0.0, 1.0]);
 
-    // draw Back left Lower Leg
-    var leftBL = new Cube();
-    leftBL.matrix = leftBUCoords;
-    leftBL.matrix.translate(0.0, 1.0 , 0.0);
-    leftBL.matrix.rotate(30, 1, 0, 0);
-    leftBL.matrix.rotate(g_BLL, 1, 0, 0);
-    var leftBLCoords = new Matrix4(leftBL.matrix);
-    leftBL.matrix.scale(0.3, 1.0, 0.5);
-    leftBL.normalMatrix.setInverseOf(leftBL.matrix).transpose();
-    leftBL.render([.65, .35, 0.0, 1.0]);
+    // Back left lower leg - reuse existing shape
+    g_shapes.leftBL.matrix = leftBUCoords;
+    g_shapes.leftBL.matrix.translate(0.0, 1.0 , 0.0);
+    g_shapes.leftBL.matrix.rotate(30, 1, 0, 0);
+    g_shapes.leftBL.matrix.rotate(g_BLL, 1, 0, 0);
+    var leftBLCoords = new Matrix4(g_shapes.leftBL.matrix);
+    g_shapes.leftBL.matrix.scale(0.3, 1.0, 0.5);
+    g_shapes.leftBL.normalMatrix.setInverseOf(g_shapes.leftBL.matrix).transpose();
+    g_shapes.leftBL.render([.65, .35, 0.0, 1.0]);
 
-    // draw left Back paw
-    var leftBP = new Cube();
-    leftBP.matrix = leftBLCoords;
-    leftBP.matrix.translate(-0.01, 1.0, 0.5);
-    leftBP.matrix.rotate(180, 1, 0, 0);
-    leftBP.matrix.rotate(g_BLP, 1, 0, 0);
-    leftBP.matrix.scale(0.34, 0.2, 1.0);
-    leftBP.normalMatrix.setInverseOf(leftBP.matrix).transpose();
-    leftBP.render([0.5, 0.35, 0.0, 1.0]);
+    // Left back paw - reuse existing shape
+    g_shapes.leftBP.matrix = leftBLCoords;
+    g_shapes.leftBP.matrix.translate(-0.01, 1.0, 0.5);
+    g_shapes.leftBP.matrix.rotate(180, 1, 0, 0);
+    g_shapes.leftBP.matrix.rotate(g_BLP, 1, 0, 0);
+    g_shapes.leftBP.matrix.scale(0.34, 0.2, 1.0);
+    g_shapes.leftBP.normalMatrix.setInverseOf(g_shapes.leftBP.matrix).transpose();
+    g_shapes.leftBP.render([0.5, 0.35, 0.0, 1.0]);
 
-    // draw front right Back leg
-    var rightBU = new Cube();
-    rightBU.matrix = new Matrix4(bodyCoords);
-    rightBU.matrix.translate(1.2, -0.75, 3.25);
-    rightBU.matrix.rotate(180, 0, 0, 1);
-    rightBU.matrix.rotate(-15, 1, 0, 0);
-    rightBU.matrix.rotate(g_BRU, 1, 0, 0);
-    var rightBUCoords = new Matrix4(rightBU.matrix);
-    rightBU.matrix.scale(0.3, 1.1, 0.5);
-    rightBU.normalMatrix.setInverseOf(rightBU.matrix).transpose();
-    rightBU.render([0.65, 0.4, 0.0, 1.0]);
+    // Back right upper leg - reuse existing shape
+    g_shapes.rightBU.matrix = new Matrix4(bodyCoords);
+    g_shapes.rightBU.matrix.translate(1.2, -0.75, 3.25);
+    g_shapes.rightBU.matrix.rotate(180, 0, 0, 1);
+    g_shapes.rightBU.matrix.rotate(-15, 1, 0, 0);
+    g_shapes.rightBU.matrix.rotate(g_BRU, 1, 0, 0);
+    var rightBUCoords = new Matrix4(g_shapes.rightBU.matrix);
+    g_shapes.rightBU.matrix.scale(0.3, 1.1, 0.5);
+    g_shapes.rightBU.normalMatrix.setInverseOf(g_shapes.rightBU.matrix).transpose();
+    g_shapes.rightBU.render([0.65, 0.4, 0.0, 1.0]);
 
-    // draw Back right Lower Leg
-    var rightBL = new Cube();
-    rightBL.matrix = rightBUCoords;
-    rightBL.matrix.translate(0.0, 1.0 , 0.0);
-    rightBL.matrix.rotate(30, 1, 0, 0);
-    rightBL.matrix.rotate(g_BRL, 1, 0, 0);
-    var rightBLCoords = new Matrix4(rightBL.matrix);
-    rightBL.matrix.scale(0.3, 1.0, 0.5);
-    rightBL.normalMatrix.setInverseOf(rightBL.matrix).transpose();
-    rightBL.render([.55, .35, 0.0, 1.0]);
+    // Back right lower leg - reuse existing shape
+    g_shapes.rightBL.matrix = rightBUCoords;
+    g_shapes.rightBL.matrix.translate(0.0, 1.0 , 0.0);
+    g_shapes.rightBL.matrix.rotate(30, 1, 0, 0);
+    g_shapes.rightBL.matrix.rotate(g_BRL, 1, 0, 0);
+    var rightBLCoords = new Matrix4(g_shapes.rightBL.matrix);
+    g_shapes.rightBL.matrix.scale(0.3, 1.0, 0.5);
+    g_shapes.rightBL.normalMatrix.setInverseOf(g_shapes.rightBL.matrix).transpose();
+    g_shapes.rightBL.render([.55, .35, 0.0, 1.0]);
 
-    // draw right Back paw
-    var rightBP = new Cube();
-    rightBP.matrix = rightBLCoords;
-    rightBP.matrix.translate(-0.01, 1.0, 0.5);
-    rightBP.matrix.rotate(180, 1, 0, 0);
-    rightBP.matrix.rotate(g_BRP, 1, 0, 0);
-    rightBP.matrix.scale(0.34, 0.2, 1.0);
-    rightBP.normalMatrix.setInverseOf(rightBP.matrix).transpose();
-    rightBP.render([0.5, 0.3, 0.0, 1.0]);
+    // Right back paw - reuse existing shape
+    g_shapes.rightBP.matrix = rightBLCoords;
+    g_shapes.rightBP.matrix.translate(-0.01, 1.0, 0.5);
+    g_shapes.rightBP.matrix.rotate(180, 1, 0, 0);
+    g_shapes.rightBP.matrix.rotate(g_BRP, 1, 0, 0);
+    g_shapes.rightBP.matrix.scale(0.34, 0.2, 1.0);
+    g_shapes.rightBP.normalMatrix.setInverseOf(g_shapes.rightBP.matrix).transpose();
+    g_shapes.rightBP.render([0.5, 0.3, 0.0, 1.0]);
 }
