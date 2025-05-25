@@ -4,14 +4,14 @@ const VSHADER_SOURCE = `
     attribute vec3 a_Normal;
     varying vec3 v_Normal;
     uniform mat4 u_ModelMatrix;
+    uniform mat4 u_NormalMatrix;
     uniform mat4 u_GlobalRotateMatrix;
     uniform mat4 u_ProjectionMatrix;
     varying vec4 v_VertPos;
 
     void main() {
         gl_Position = u_ProjectionMatrix * u_GlobalRotateMatrix * u_ModelMatrix * a_Position;
-
-        v_Normal = a_Normal;
+        v_Normal = normalize(vec3(u_NormalMatrix * vec4(a_Normal, 1.0)));
         v_VertPos = u_ModelMatrix * a_Position;
     }`;
 
@@ -24,6 +24,7 @@ const FSHADER_SOURCE = `
     uniform vec3 u_LightPos;
     uniform vec3 u_cameraPos;
     varying vec4 v_VertPos;
+    uniform bool u_LightOff;
     void main() {
         if (u_UseNormalColors == 1) {
             gl_FragColor = vec4((v_Normal + 1.0) / 2.0, 1.0);
@@ -47,10 +48,12 @@ const FSHADER_SOURCE = `
 
         vec3 diffuse = vec3(gl_FragColor) * nDotL;
         vec3 ambient = vec3(gl_FragColor) * 0.3;
-        if (isSky) {
-            gl_FragColor = vec4(diffuse + ambient, 1.0);
-        } else {
-            gl_FragColor = vec4(specular + diffuse + ambient, 1.0);
+        if (!u_LightOff) {
+            if (isSky) {
+                gl_FragColor = vec4(diffuse + ambient, 1.0);
+            } else {
+                gl_FragColor = vec4(specular + diffuse + ambient, 1.0);
+            }
         }
     }`;
 
@@ -66,6 +69,7 @@ let u_ProjectionMatrix;
 let a_Normal;
 let u_UseNormalColors;
 let u_cameraPos;
+let u_LightOff; // Toggle light off/on
 
 let g_lastTime = performance.now();
 let g_frameCount = 0;
@@ -207,10 +211,21 @@ function connectVariablesToGLSL() {
         console.log('Failed to get u_LightPos');
         return;
     }
-
+    
     u_cameraPos = gl.getUniformLocation(gl.program, 'u_cameraPos');
     if (!u_cameraPos) {
         console.log('Failed to get u_cameraPos');
+        return;
+    }
+    u_LightOff = gl.getUniformLocation(gl.program, 'u_LightOff');
+    if (!u_LightOff) {
+        console.log('Failed to get u_LightOff');
+        return;
+    }
+
+    u_NormalMatrix = gl.getUniformLocation(gl.program, 'u_NormalMatrix');
+    if (!u_NormalMatrix) {
+        console.log('Failed to get u_NormalMatrix');
         return;
     }
     
@@ -225,10 +240,13 @@ function addActionsForHtmlUI() {
     document.getElementById("stop").onclick = function() {g_Animation = false;};
     document.getElementById("On").onclick = function() {g_Normals = true, gl.uniform1i(u_UseNormalColors, 1);};
     document.getElementById("Off").onclick = function() {g_Normals = false, gl.uniform1i(u_UseNormalColors, 0);};
+    document.getElementById("LightO").onclick = function() {gl.uniform1i(u_LightOff, false);};
+    document.getElementById("LightOff").onclick = function() {gl.uniform1i(u_LightOff, true);};
 
     document.getElementById("lightSliderX").addEventListener("mousemove", function() { g_lightPos[0]= this.value/100; renderScene();});
     document.getElementById("lightSliderY").addEventListener("mousemove", function() { g_lightPos[1]= this.value/100; renderScene();});
     document.getElementById("lightSliderZ").addEventListener("mousemove", function() { g_lightPos[2]= this.value/100; renderScene();});
+
 }
 
 function setupMouseHandlers() {
@@ -460,7 +478,7 @@ function renderScene() {
     var radY = g_globalAngleY * Math.PI / 180;
     
     // Apply inverse transformations
-   var cameraX = -2.5 * Math.sin(radY) * Math.cos(radX);
+    var cameraX = -2.5 * Math.sin(radY) * Math.cos(radX);
     var cameraY = 2.5 * Math.sin(radX);
     var cameraZ = 2.5 * Math.cos(radY) * Math.cos(radX);
     gl.uniform3f(u_cameraPos, cameraX, cameraY, cameraZ);
@@ -475,8 +493,6 @@ function renderScene() {
     sphere.matrix.scale(0.5, 0.5, 0.5); // Scale the sphere
     sphere.render([0.8, 0.5, 0.2, 1.0]); // Ground color
 
-    
-
     var light = new Cube();
     light.matrix.setTranslate(g_lightPos[0], g_lightPos[1], g_lightPos[2]);
     light.matrix.scale(-0.1, -0.1, -0.1); // Scale the light cube
@@ -488,6 +504,7 @@ function renderScene() {
     body.matrix.rotate(g_body, 1, 0, 0);
     var bodyCoords = new Matrix4(body.matrix);
     body.matrix.scale(0.5, 0.3, 0.65);
+    body.normalMatrix.setInverseOf(body.matrix).transpose();
     body.render([0.45, 0.3, 0.0, 1.0]);
 
     // tail
@@ -522,6 +539,7 @@ function renderScene() {
     mouthFloor.matrix.rotate(10, 1, 0, 0);
     mouthFloor.matrix.rotate(g_mouth, 1, 0, 0);
     mouthFloor.matrix.scale(0.15, 0.075, 0.2);
+    mouthFloor.normalMatrix.setInverseOf(mouthFloor.matrix).transpose();
     mouthFloor.render([0.5, 0.3, 0.0, 1.0]);
 
     // draw left eye
@@ -563,6 +581,7 @@ function renderScene() {
     leftFU.matrix.rotate(g_FLU, 1, 0, 0);
     var leftFUCoords = new Matrix4(leftFU.matrix);
     leftFU.matrix.scale(0.3, 1.1, 0.5);
+    leftFU.normalMatrix.setInverseOf(leftFU.matrix).transpose();
     leftFU.render([0.6, 0.4, 0.0, 1.0]);
 
     // draw left Lower Leg
@@ -573,6 +592,7 @@ function renderScene() {
     leftFL.matrix.rotate(g_FLL, 1, 0, 0);
     var leftFLCoords = new Matrix4(leftFL.matrix);
     leftFL.matrix.scale(.3, 1.0, 0.5);
+    leftFL.normalMatrix.setInverseOf(leftFL.matrix).transpose();
     leftFL.render([.65, .35, 0.0, 1.0]);
 
     // draw left front paw
@@ -582,6 +602,7 @@ function renderScene() {
     leftFP.matrix.rotate(180, 1, 0, 0);
     leftFP.matrix.rotate(g_FLP, 1, 0, 0);
     leftFP.matrix.scale(0.34, 0.2, 1.);
+    leftFP.normalMatrix.setInverseOf(leftFP.matrix).transpose();
     leftFP.render([0.7, 0.5, 0.0, 1.0]);
 
     // draw front right upper leg
@@ -593,6 +614,7 @@ function renderScene() {
     rightFU.matrix.rotate(g_FRU, 1, 0, 0);
     var rightFUCoords = new Matrix4(rightFU.matrix);
     rightFU.matrix.scale(0.3, 1.1, 0.5);
+    rightFU.normalMatrix.setInverseOf(rightFU.matrix).transpose();
     rightFU.render([0.6, 0.4, 0.0, 1.0]);
 
     // draw right Lower Leg
@@ -603,6 +625,7 @@ function renderScene() {
     rightFL.matrix.rotate(g_FRL, 1, 0, 0);
     var rightFLCoords = new Matrix4(rightFL.matrix);
     rightFL.matrix.scale(0.3, 1.0, 0.5);
+    rightFL.normalMatrix.setInverseOf(rightFL.matrix).transpose();
     rightFL.render([.65, .35, 0.0, 1.0]);
 
     // draw right front paw
@@ -612,6 +635,7 @@ function renderScene() {
     rightFP.matrix.rotate(180, 1, 0, 0);
     rightFP.matrix.rotate(g_FRP, 1, 0, 0);
     rightFP.matrix.scale(0.34, 0.2, 1.0);
+    rightFP.normalMatrix.setInverseOf(rightFP.matrix).transpose();
     rightFP.render([0.7, 0.5, 0.0, 1.0]);
 
     // draw back left upper leg
@@ -623,6 +647,7 @@ function renderScene() {
     leftBU.matrix.rotate(g_BLU, 1, 0, 0);
     var leftBUCoords = new Matrix4(leftBU.matrix);
     leftBU.matrix.scale(0.3, 1.1, 0.5);
+    leftBU.normalMatrix.setInverseOf(leftBU.matrix).transpose();
     leftBU.render([0.6, 0.4, 0.0, 1.0]);
 
     // draw Back left Lower Leg
@@ -633,6 +658,7 @@ function renderScene() {
     leftBL.matrix.rotate(g_BLL, 1, 0, 0);
     var leftBLCoords = new Matrix4(leftBL.matrix);
     leftBL.matrix.scale(0.3, 1.0, 0.5);
+    leftBL.normalMatrix.setInverseOf(leftBL.matrix).transpose();
     leftBL.render([.65, .35, 0.0, 1.0]);
 
     // draw left Back paw
@@ -642,6 +668,7 @@ function renderScene() {
     leftBP.matrix.rotate(180, 1, 0, 0);
     leftBP.matrix.rotate(g_BLP, 1, 0, 0);
     leftBP.matrix.scale(0.34, 0.2, 1.0);
+    leftBP.normalMatrix.setInverseOf(leftBP.matrix).transpose();
     leftBP.render([0.5, 0.35, 0.0, 1.0]);
 
     // draw front right Back leg
@@ -653,6 +680,7 @@ function renderScene() {
     rightBU.matrix.rotate(g_BRU, 1, 0, 0);
     var rightBUCoords = new Matrix4(rightBU.matrix);
     rightBU.matrix.scale(0.3, 1.1, 0.5);
+    rightBU.normalMatrix.setInverseOf(rightBU.matrix).transpose();
     rightBU.render([0.65, 0.4, 0.0, 1.0]);
 
     // draw Back right Lower Leg
@@ -663,6 +691,7 @@ function renderScene() {
     rightBL.matrix.rotate(g_BRL, 1, 0, 0);
     var rightBLCoords = new Matrix4(rightBL.matrix);
     rightBL.matrix.scale(0.3, 1.0, 0.5);
+    rightBL.normalMatrix.setInverseOf(rightBL.matrix).transpose();
     rightBL.render([.55, .35, 0.0, 1.0]);
 
     // draw right Back paw
@@ -672,5 +701,6 @@ function renderScene() {
     rightBP.matrix.rotate(180, 1, 0, 0);
     rightBP.matrix.rotate(g_BRP, 1, 0, 0);
     rightBP.matrix.scale(0.34, 0.2, 1.0);
+    rightBP.normalMatrix.setInverseOf(rightBP.matrix).transpose();
     rightBP.render([0.5, 0.3, 0.0, 1.0]);
 }

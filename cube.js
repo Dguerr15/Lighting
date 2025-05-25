@@ -7,6 +7,7 @@ class Cube {
     constructor() {
         this.color = [1.0, 1.0, 1.0, 1.0];        // [r, g, b, a]
         this.matrix = new Matrix4();
+        this.normalMatrix = new Matrix4();
 
         // Initialize cube vertices and normals if needed
         if (g_cubeVertices === null) {
@@ -104,6 +105,8 @@ class Cube {
 
         // Set the model matrix
         gl.uniformMatrix4fv(u_ModelMatrix, false, this.matrix.elements);
+
+        gl.uniformMatrix4fv(u_NormalMatrix, false, this.normalMatrix.elements);
         
         // Bind the vertex buffer
         gl.bindBuffer(gl.ARRAY_BUFFER, g_cubeVertexBuffer);
