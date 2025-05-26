@@ -22,9 +22,13 @@ const FSHADER_SOURCE = `
     uniform vec4 u_FragColor;
     uniform int u_UseNormalColors;
     uniform vec3 u_LightPos;
+    uniform vec3 u_SpotlightPos;
     uniform vec3 u_cameraPos;
     varying vec4 v_VertPos;
     uniform bool u_LightOff;
+    uniform vec3 u_SpotlightDir;
+    uniform float u_SpotlightCutoff;
+    uniform float u_SpotlightOuterCutoff;
     void main() {
         if (u_UseNormalColors == 1) {
             gl_FragColor = vec4((v_Normal + 1.0) / 2.0, 1.0);
@@ -32,22 +36,39 @@ const FSHADER_SOURCE = `
             gl_FragColor = u_FragColor;
         }
 
-        vec3 lightVector = u_LightPos - vec3(v_VertPos);
-        vec3 L = normalize(lightVector);
         vec3 N = normalize(v_Normal);
-        float nDotL = max(dot(N, L), 0.0);
-
-        vec3 R = reflect(-L, N);
         vec3 E = normalize(u_cameraPos - vec3(v_VertPos));
 
-        float specular = pow(max(dot(E, R), 0.0), 5.0); 
+        // Point light calculation
+        vec3 lightVector1 = u_LightPos - vec3(v_VertPos);
+        vec3 L1 = normalize(lightVector1);
+        float nDotL1 = max(dot(N, L1), 0.0);
+        vec3 R1 = reflect(-L1, N);
+        float specular1 = pow(max(dot(E, R1), 0.0), 5.0);
+
+        // Spotlight calculation
+        vec3 lightVector2 = u_SpotlightPos - vec3(v_VertPos);
+        vec3 L2 = normalize(lightVector2);
+        float nDotL2 = max(dot(N, L2), 0.0);
+        
+        vec3 spotDir = normalize(u_SpotlightDir);
+        float theta = dot(L2, normalize(-spotDir));
+        float epsilon = u_SpotlightCutoff - u_SpotlightOuterCutoff;
+        float intensity = clamp((theta - u_SpotlightOuterCutoff) / epsilon, 0.0, 1.0);
+        
+        vec3 R2 = reflect(-L2, N);
+        float specular2 = pow(max(dot(E, R2), 0.0), 5.0) * intensity;
 
         bool isSky = (gl_FragColor.r > 0.4 && gl_FragColor.r < 0.6 && 
               gl_FragColor.g > 0.6 && gl_FragColor.g < 0.8 && 
               gl_FragColor.b > 0.9);
 
-        vec3 diffuse = vec3(gl_FragColor) * nDotL;
+        // Combine both lights
+        vec3 diffuse = vec3(gl_FragColor) * nDotL1 + vec3(gl_FragColor) * (nDotL2 * intensity * .5);
+        vec3 specular = vec3(specular1 + specular2);
+        
         vec3 ambient = vec3(gl_FragColor) * 0.3;
+        
         if (!u_LightOff) {
             if (isSky) {
                 gl_FragColor = vec4(diffuse + ambient, 1.0);
@@ -67,15 +88,24 @@ let u_GlobalRotateMatrix;
 let u_LightPos;
 let u_ProjectionMatrix;
 let a_Normal;
+let u_NormalMatrix;
 let u_UseNormalColors;
 let u_cameraPos;
 let u_LightOff; // Toggle light off/on
+let u_SpotlightDir;
+let u_SpotlightCutoff;
+let u_SpotlightOuterCutoff;
+let u_SpotlightPos;
 
 let g_lastTime = performance.now();
 let g_frameCount = 0;
 let g_fps = 0;
 let g_Normals = false; // Toggle normals display
-let g_lightPos = [0,1,-2];
+let g_lightPos = [0,1,-1.5];
+let g_spotlightPos = [.3, 1.5, .2];
+let g_spotlightDir = [0, -1, 0]; // Point downward
+let g_spotlightCutoff = Math.cos(12.5 * Math.PI / 180); // Inner cone (12.5 degrees)
+let g_spotlightOuterCutoff = Math.cos(17.5 * Math.PI / 180); // Outer cone (17.5 degrees)
 let g_shapes = {};
 
 // UI
@@ -231,8 +261,27 @@ function connectVariablesToGLSL() {
         console.log('Failed to get u_NormalMatrix');
         return;
     }
+    u_SpotlightDir = gl.getUniformLocation(gl.program, 'u_SpotlightDir');
+    if (!u_SpotlightDir) {
+        console.log('Failed to get u_SpotlightDir');
+        return;
+    }
+    u_SpotlightCutoff = gl.getUniformLocation(gl.program, 'u_SpotlightCutoff');
+    if (!u_SpotlightCutoff) {
+        console.log('Failed to get u_SpotlightCutoff');
+        return;
+    }
+    u_SpotlightOuterCutoff = gl.getUniformLocation(gl.program, 'u_SpotlightOuterCutoff');
+    if (!u_SpotlightOuterCutoff) {
+        console.log('Failed to get u_SpotlightOuterCutoff');
+        return;
+    }
+    u_SpotlightPos = gl.getUniformLocation(gl.program, 'u_SpotlightPos');
+    if (!u_SpotlightPos) {
+        console.log('Failed to get u_SpotlightPos');
+        return;
+    }
     
-
     var identityM = new Matrix4();
     gl.uniformMatrix4fv(u_ModelMatrix, false, identityM.elements);
 }
@@ -465,6 +514,7 @@ function initializeShapes() {
     g_shapes.sky = new Cube();
     g_shapes.sphere = new Sphere();
     g_shapes.light = new Cube();
+    g_shapes.spotLight = new Cube();
     g_shapes.body = new Cube();
     g_shapes.tail = new Cylinder();
     g_shapes.head = new Cube();
@@ -504,6 +554,10 @@ function renderScene() {
     gl.uniformMatrix4fv(u_ProjectionMatrix, false, projMatrix.elements);
 
     gl.uniform3f(u_LightPos, g_lightPos[0], g_lightPos[1], g_lightPos[2]);
+    gl.uniform3f(u_SpotlightDir, g_spotlightDir[0], g_spotlightDir[1], g_spotlightDir[2]);
+    gl.uniform1f(u_SpotlightCutoff, g_spotlightCutoff);
+    gl.uniform1f(u_SpotlightOuterCutoff, g_spotlightOuterCutoff);
+    gl.uniform3f(u_SpotlightPos, g_spotlightPos[0], g_spotlightPos[1], g_spotlightPos[2]);
 
     var radX = g_globalAngleX * Math.PI / 180;
     var radY = g_globalAngleY * Math.PI / 180;
@@ -526,7 +580,14 @@ function renderScene() {
     // Light - reuse existing shape
     g_shapes.light.matrix.setTranslate(g_lightPos[0], g_lightPos[1], g_lightPos[2]);
     g_shapes.light.matrix.scale(-0.1, -0.1, -0.1);
+    g_shapes.light.normalMatrix.setInverseOf(g_shapes.light.matrix).transpose();
     g_shapes.light.render([2.0, 2.0, 0.0, 1.0]);
+
+    // Light - reuse existing shape
+    g_shapes.spotLight.matrix.setTranslate(g_spotlightPos[0], g_spotlightPos[1], g_spotlightPos[2]);
+    g_shapes.spotLight.matrix.scale(-0.1, -0.1, -0.1);
+    g_shapes.spotLight.normalMatrix.setInverseOf(g_shapes.spotLight.matrix).transpose();
+    g_shapes.spotLight.render([2.0, 2.0, 0.0, 1.0]);
 
     // Body - reuse existing shape
     g_shapes.body.matrix.setTranslate(-0.25, -0.2, -0.05);
