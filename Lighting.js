@@ -536,7 +536,6 @@ function initializeShapes() {
     g_shapes.rightBU = new Cube();
     g_shapes.rightBL = new Cube();
     g_shapes.rightBP = new Cube();
-    g_shapes.teapot = new Model(gl, 'teapot.obj');
 }
 
 // render all shapes
@@ -573,14 +572,10 @@ function renderScene() {
     g_shapes.sky.matrix.scale(-5, -5, -5);
     g_shapes.sky.render([0.5, 0.7, 1.0, 1.0]);
 
-    g_shapes.teapot.matrix.translate(2, 2, 2); // Position the teapot
-    g_shapes.teapot.matrix.scale(0.5, 0.5, 0.5); // Scale if needed
-    g_shapes.teapot.render(gl, gl.program);
-
     // Sphere - reuse existing shape
     g_shapes.sphere.matrix.setTranslate(0.5, .5, 0);
     g_shapes.sphere.matrix.scale(0.5, 0.5, 0.5);
-    g_shapes.sphere.render([0.8, 0.5, 0.7, 1.0]);
+    g_shapes.sphere.render([0.8, 0.5, 0.2, 1.0]);
 
     // Light - reuse existing shape
     g_shapes.light.matrix.setTranslate(g_lightPos[0], g_lightPos[1], g_lightPos[2]);
